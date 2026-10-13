@@ -68,6 +68,9 @@
   .tbar { position: relative; height: 46px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin: 8px 0 10px; }
   .tzone { position: absolute; top: 0; bottom: 0; width: 20%; background: #fde68a; }
   .tmark { position: absolute; top: 0; bottom: 0; width: 6px; background: var(--red); border-radius: 3px; }
+  #revGrid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; max-width: 520px; margin: 0 auto; }
+  .revCell { aspect-ratio: 1; border-radius: 10px; border: 2px solid var(--navy); background: #fff; font-weight: 900; font-size: 18px; color: var(--navy); }
+  .revCell:active { background: var(--gold); }
   .live { text-align: center; margin: 4px 0 10px; }
   .live b { font-size: 46px; color: var(--navy); line-height: 1; }
   .live small { display: block; color: var(--muted); font-weight: 700; }
@@ -340,8 +343,10 @@ function renderPanel(r) {
       x.top.map((t, i) => (i + 1) + '. ' + Camp.esc(t.name) + ' ' + t.score).join(' · ')).join(' / ') + '</div>';
     h += '<div id="gameArea"></div>';
   } else if (mode === 'RANDOM') {
-    status('ok', Camp.esc(r.student.name) + ' 참가비 −' + r.fee + '\n<span class="small">QR을 다시 스캔하면 룰렛이 돌아갑니다</span>');
-    h += '<div class="wheel">🎡</div><div class="rescan">QR을 다시 스캔 → 룰렛 결과</div>';
+    status('ok', Camp.esc(r.student.name) + ' 참가비 −' + r.fee + '\n<span class="small">100칸 중 하나를 골라 바로 공개! 끝나면 자동 적립됩니다</span>');
+    CUR.pending = { picking: true };
+    h += '<div class="gMsg">마음에 드는 칸을 하나 계라 누르세요 — 최대 <b>10배</b>가 숨어 있습니다 (선택하면 즉시 공개·종료)</div>' +
+      '<div id="revGrid">' + Array.from({length: 100}, (_, i) => '<button class="revCell" onclick="pickCell(' + i + ')">?</button>').join('') + '</div>';
   } else if (mode === 'SHOP') {
     status('wait', '상품을 고른 뒤 QR을 다시 스캔하면 결제됩니다');
     CUR.pending = { items: [] };
@@ -502,6 +507,13 @@ function timingGame() {
   newRound();
 }
 
+/* 복권 100칸 선택 */
+function pickCell(i) {
+  if (busy || !CUR || !CUR.pending || !CUR.pending.picking) return;
+  busy = true; status('wait', '공개 중…');
+  Camp.api('booth.end', { booth: BOOTH, key: KEY, session: CUR.session, pending: { session: CUR.session, pick: i } })
+    .then(r => { busy = false; handle(r); });
+}
 /* 상점 */
 function qty(i, d) {
   const p = CUR.products[i];
