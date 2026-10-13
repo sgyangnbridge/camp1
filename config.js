@@ -3,5 +3,5 @@
  * (https://script.google.com/macros/s/....../exec 형태)
  */
 window.CAMP_CONFIG = {
-  API_URL: 'https://script.google.com/macros/s/AKfycby5Q_dotMayaxAOEB2WWIbfDoutN5AVEqz2MfFohMat6zAya4tm_G4DEzBzCw7N-H8/exec',
+  API_URL: 'https://script.google.com/macros/s/여기에_배포_ID를_넣으세요/exec',
 };

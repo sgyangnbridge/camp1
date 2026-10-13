@@ -68,6 +68,15 @@
   .tbar { position: relative; height: 46px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin: 8px 0 10px; }
   .tzone { position: absolute; top: 0; bottom: 0; width: 20%; background: #fde68a; }
   .tmark { position: absolute; top: 0; bottom: 0; width: 6px; background: var(--red); border-radius: 3px; }
+  .live { text-align: center; margin: 4px 0 10px; }
+  .live b { font-size: 46px; color: var(--navy); line-height: 1; }
+  .live small { display: block; color: var(--muted); font-weight: 700; }
+  .recBoard { margin-top: 10px; }
+  .recLine { display: flex; gap: 10px; padding: 7px 6px; border-bottom: 1px solid var(--line); font-size: 16px; align-items: center; }
+  .recLine .rk { width: 38px; font-weight: 800; color: var(--muted); }
+  .recLine .sc { margin-left: auto; font-weight: 900; }
+  .recLine.me { background: #fef9c3; }
+  .newRec { background: #fef3c7; border: 2px solid var(--gold); border-radius: 12px; padding: 10px; text-align: center; font-weight: 900; font-size: 20px; margin-bottom: 8px; }
   /* 설정 화면 */
   #setup { max-width: 520px; margin: 40px auto; }
   .pinbox { display: flex; gap: 8px; margin-top: 10px; }
@@ -250,7 +259,14 @@ function handle(r) {
     if (INFO.booth.mode === 'QUIZ') extra = r.correct ? '⭕ 정답!' : '❌ 오답 (정답 ' + r.answer + '번)';
     status('ok', (extra ? extra + '\n' : '') + Camp.esc(r.student.name) + ' — ' + Camp.esc(r.result || '완료') +
       '<span class="big">' + Camp.fmt(r.delta) + '</span>잔액 ' + r.balance + limitText(r.usage));
-    idleLater(r.delta !== 0 ? 5000 : 3500);
+    if (r.record && r.record.game) {
+      const rec = r.record;
+      $('panel').innerHTML = '<div class="card recBoard">' + (rec.isNew ? '<div class="newRec">🎉 신기록! 이 게임의 최고 기록!</div>' : '') +
+        '<h3 style="margin:2px 0 8px">🏆 ' + Camp.esc(rec.game) + ' 최고 기록</h3>' +
+        rec.top.map((t, i) => '<div class="recLine"><span class="rk">' + (i + 1) + '위</span><b>' + Camp.esc(t.name) + '</b><span class="sc">' + t.score + '점</span></div>').join('') +
+        '<div class="small" style="margin-top:8px">역대 내 최고 <b>' + rec.myBest + '점</b> · 전체 ' + rec.myRank + '위</div></div>';
+      idleLater(9000);
+    } else idleLater(r.delta !== 0 ? 5000 : 3500);
     return;
   }
   if (r.stage === 'info') {
@@ -319,6 +335,9 @@ function renderPanel(r) {
   } else if (mode === 'GAME') {
     status('ok', Camp.esc(r.student.name) + ' 시작!' + (r.fee ? ' (−' + r.fee + ')' : '') + '\n<span class="small">타이밍 게임 3회 — 적중 수만큼 자동 보상!</span>');
     CUR.pending = { playing: false, game: 'timing' };
+    const topRec = r.records || INFO.records || [];
+    if (topRec.length) h += '<div class="recBoard small">🏆 ' + topRec.map(x => '<b>' + Camp.esc(x.game) + '</b> ' +
+      x.top.map((t, i) => (i + 1) + '. ' + Camp.esc(t.name) + ' ' + t.score).join(' · ')).join(' / ') + '</div>';
     h += '<div id="gameArea"></div>';
   } else if (mode === 'RANDOM') {
     status('ok', Camp.esc(r.student.name) + ' 참가비 −' + r.fee + '\n<span class="small">QR을 다시 스캔하면 룰렛이 돌아갑니다</span>');
@@ -331,6 +350,9 @@ function renderPanel(r) {
       '<div class="qty"><button onclick="qty(' + i + ',-1)">−</button><span id="q' + i + '">0</span><button onclick="qty(' + i + ',1)">+</button></div></div>').join('') + '</div>' +
       '<div class="total">합계 <span id="tot">0</span></div><div class="rescan" id="payHint">상품 선택 → QR 다시 스캔하면 결제</div>';
     CUR.products = r.products || INFO.products || [];
+    const topRec = r.records || INFO.records || [];
+    if (topRec.length) h += topRec.map(x => '<div class="recBoard small">🏆 <b>' + Camp.esc(x.game) + '</b> — ' +
+      x.top.map((t, i) => (i + 1) + '. ' + Camp.esc(t.name) + ' ' + t.score).join(' · ') + '</div>').join('');
   } else if (mode === 'STOCK') {
     status('wait', '종목과 금액을 고른 뒤 QR을 다시 스캔하면 확정됩니다');
     CUR.pending = { stock: '', action: '', amount: 0 };
@@ -401,31 +423,35 @@ function gameFinish(score, text) {
 }
 function reactGame() {
   const b = $('gBody'); let round = 0, times = [], goT = 0, live = false;
+  b.innerHTML = '<div class="live"><b id="liveVal">0</b><small>라운드 완료 / 3</small></div><div id="rpad"></div>';
   function next() {
     if (round >= 3) {
       const avg = Math.round(times.reduce((a, x) => a + x, 0) / times.length);
-      b.innerHTML = '<div class="gMsg">평균 <b>' + avg + 'ms</b> — 저장 중…</div>';
+      b.innerHTML = '<div class="live"><b>' + avg + 'ms</b><small>평균 기록 — 저장 중…</small></div>';
       gT(() => gameFinish(avg, '평균 ' + avg + 'ms'), 1300); return;
     }
     live = false;
-    b.innerHTML = '<div class="pad wait" id="rpad">기다리세요…<br><span class="small">초록불을 기다렸다 누르기 (라운드 ' + (round + 1) + '/3)</span></div>';
-    $('rpad').onclick = () => {
-      if (!live && !times.length) {} // 대기 중 클릭
-      if (!live) { b.innerHTML = '<div class="pad wait">너무 빠릅니다! 다시 기다리세요…</div>'; gT(next, 900); return; }
-      times.push(Date.now() - goT); round++; next();
+    $('rpad').innerHTML = '<div class="pad wait" id="rpadBtn">기다리세요…<br><span class="small">초록불을 기다렸다 누르기 (라운드 ' + (round + 1) + '/3)</span></div>';
+    $('rpadBtn').onclick = () => {
+      if (!live) { $('rpad').innerHTML = '<div class="pad wait">너무 빠릅니다! 다시 기다리세요…</div>'; gT(next, 900); return; }
+      const ms = Date.now() - goT; times.push(ms); round++;
+      const lv = $('liveVal'); if (lv) lv.textContent = round;
+      $('rpad').innerHTML = '<div class="pad wait">' + ms + 'ms!</div>';
+      gT(next, 800);
     };
     gT(() => { live = true; goT = Date.now();
-      const p = $('rpad'); if (!p) return; p.className = 'pad go'; p.innerHTML = '누르세요!'; }, 1200 + Math.random() * 2200);
+      const p = $('rpadBtn'); if (!p) return; p.className = 'pad go'; p.innerHTML = '누르세요!'; }, 1200 + Math.random() * 2200);
   }
   next();
 }
 function moleGame() {
   const b = $('gBody'); let score = 0, left = 30;
-  b.innerHTML = '<div class="gMsg"><b id="moleSc">0</b>마리 잡기 · 남은 <span id="moleT">30</span>초</div><div id="moleGrid"></div>';
+  b.innerHTML = '<div class="live"><b id="liveVal">0</b><small>마리 잡음 · 남은 <span id="moleT">30</span>초</small></div><div id="moleGrid"></div>';
   const cells = [];
   for (let i = 0; i < 9; i++) {
     const d = document.createElement('button'); d.className = 'mcell'; d.textContent = '🕳';
-    d.onclick = () => { if (d.classList.contains('up')) { d.classList.remove('up'); d.textContent = '🕳'; score++; const s = $('moleSc'); if (s) s.textContent = score; } };
+    d.onclick = () => { if (d.classList.contains('up')) { d.classList.remove('up'); d.textContent = '🕳'; score++;
+      const lv = $('liveVal'); if (lv) lv.textContent = score; } };
     $('moleGrid').appendChild(d); cells.push(d);
   }
   gI(() => { const c = cells[Math.floor(Math.random() * 9)]; c.classList.add('up'); c.textContent = '🐹';
@@ -434,7 +460,7 @@ function moleGame() {
 }
 function memoryGame() {
   const b = $('gBody'); const pads = []; let seq = [], pos = 0, round = 0, input = false;
-  b.innerHTML = '<div class="gMsg" id="memMsg">순서를 보고 같은 색을 누르세요</div><div id="memGrid"></div>';
+  b.innerHTML = '<div class="live"><b id="liveVal">0</b><small>라운드</small></div><div class="gMsg" id="memMsg">순서를 보고 같은 색을 누르세요</div><div id="memGrid"></div>';
   const cols = ['#ef4444', '#3b82f6', '#22c55e', '#eab308'];
   for (let i = 0; i < 4; i++) {
     const d = document.createElement('button'); d.className = 'mpad'; d.style.background = cols[i];
@@ -449,6 +475,7 @@ function memoryGame() {
   function flash(d) { const o = d.style.opacity; d.style.opacity = '.35'; gT(() => { d.style.opacity = o; }, 190); }
   function show() {
     seq.push(Math.floor(Math.random() * 4)); pos = 0;
+    const lv = $('liveVal'); if (lv) lv.textContent = round + 1;
     $('memMsg').innerHTML = '라운드 <b>' + (round + 1) + '</b> · 보고 따라하기 (' + seq.length + '개)';
     seq.forEach((v, i) => gT(() => flash(pads[v]), 550 + i * 560));
     gT(() => { input = true; $('memMsg').innerHTML = '라운드 <b>' + (round + 1) + '</b> · 이제 같은 순서로!'; }, 550 + seq.length * 560);
@@ -457,7 +484,7 @@ function memoryGame() {
 }
 function timingGame() {
   const b = $('gBody'); let hits = 0, round = 0, pos = 0, dir = 1, moving = null, target = 0, live = false;
-  b.innerHTML = '<div class="gMsg">노란 구간에서 멈추세요! 적중 <b id="tHit">0</b>/3</div>' +
+  b.innerHTML = '<div class="live"><b id="liveVal">0</b><small>적중 / 3</small></div>' +
     '<div class="tbar"><div class="tzone" id="tzone"></div><div class="tmark" id="tmark"></div></div>' +
     '<button class="btn blue" id="tbtn" style="width:100%">멈춤!</button>';
   function newRound() {
@@ -469,7 +496,7 @@ function timingGame() {
   }
   $('tbtn').onclick = () => {
     if (!live) return; live = false; clearInterval(moving);
-    if (pos >= target && pos <= target + 20) { hits++; const h = $('tHit'); if (h) h.textContent = hits; }
+    if (pos >= target && pos <= target + 20) { hits++; const h = $('liveVal'); if (h) h.textContent = hits; }
     round++; gT(newRound, 650);
   };
   newRound();
