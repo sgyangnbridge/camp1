@@ -72,6 +72,15 @@
   .tbar { position: relative; height: 46px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin: 8px 0 10px; }
   .tzone { position: absolute; top: 0; bottom: 0; width: 20%; background: #fde68a; }
   .tmark { position: absolute; top: 0; bottom: 0; width: 6px; background: var(--red); border-radius: 3px; }
+  .dartWrap { display: flex; justify-content: center; margin: 6px 0 10px; }
+  .dartBoard { position: relative; width: min(300px, 72vw); aspect-ratio: 1; border-radius: 50%; background: #14532d; border: 6px solid var(--navy); }
+  .dring { position: absolute; border-radius: 50%; }
+  .dring.r1 { inset: 14%; background: #fef3c7; border: 2px solid #d4a017; }
+  .dring.r2 { inset: 32%; background: #dc2626; }
+  .dring.bull { inset: 45%; background: var(--navy); border: 2px solid #fbbf24; }
+  .dCross { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid #111; transform: translate(-50%,-50%); left: 50%; top: 50%; z-index: 5; }
+  .dHit { position: absolute; width: 13px; height: 13px; border-radius: 50%; background: #111; transform: translate(-50%,-50%); }
+  .dHit.good { background: #fbbf24; }
   #revGrid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; max-width: 520px; margin: 0 auto; }
   .revCell { aspect-ratio: 1; border-radius: 10px; border: 2px solid var(--navy); background: #fff; font-weight: 900; font-size: 18px; color: var(--navy); }
   .revCell:active { background: var(--gold); }
@@ -346,12 +355,15 @@ function renderPanel(r) {
       [['react', '⚡ 반응 속도'], ['mole', '🔨 두더지 잡기'], ['memory', '🧠 기억 순서'], ['timing', '🎯 타이밍 스탑']].map(g =>
         '<button class="opt s" onclick="startGame(\'' + g[0] + '\')">' + g[1] + '<small>터치 게임 · 점수 자동 저장</small></button>').join('') + '</div>';
   } else if (mode === 'GAME') {
-    status('ok', Camp.esc(r.student.name) + ' 시작!' + (r.fee ? ' (−' + r.fee + ')' : '') + '\n<span class="small">타이밍 게임 3회 — 적중 수만큼 자동 보상!</span>');
-    CUR.pending = { playing: false, game: 'timing' };
+    status('ok', Camp.esc(r.student.name) + ' 시작!' + (r.fee ? ' (−' + r.fee + ')' : '') + '\n<span class="small">게임을 골라 3회 도전 — 적중 수만큼 자동 보상!</span>');
+    CUR.pending = { playing: false };
     const topRec = r.records || INFO.records || [];
     if (topRec.length) h += '<div class="recBoard small">🏆 ' + topRec.map(x => '<b>' + Camp.esc(x.game) + '</b> ' +
       x.top.map((t, i) => (i + 1) + '. ' + Camp.esc(t.name) + ' ' + t.score).join(' · ')).join(' / ') + '</div>';
-    h += '<div id="gameArea"></div>';
+    h += '<div class="opts" id="games">' +
+      [['timing', '🎯 타이밍 스탑'], ['darts', '🎈 다트 3발']].map(g =>
+        '<button class="opt s" onclick="startGame(\'' + g[0] + '\')">' + g[1] + '<small>3회 도전 · 적중 수 = 보상</small></button>').join('') + '</div>' +
+      '<div id="gameArea"></div>';
   } else if (mode === 'RANDOM') {
     status('ok', Camp.esc(r.student.name) + ' 참가비 −' + r.fee + '\n<span class="small">100칸 중 하나를 골라 바로 공개! 끝나면 자동 적립됩니다</span>');
     CUR.pending = { picking: true };
@@ -409,7 +421,7 @@ function renderPanel(r) {
   h += cancelBtn() + (CUR.pending ? '<div class="small muted" style="text-align:right" id="idleLeft"></div>' : '') + '</div>';
   P.innerHTML = h;
   touch();
-  if (mode === 'GAME') startGame('timing');
+
 }
 
 /* ---------- 단말 내 미니게임 (오락실·GAME 부스) ---------- */
@@ -420,13 +432,13 @@ function stopGameTick() { gTimers.forEach(t => { clearTimeout(t); clearInterval(
 function startGame(name) {
   if (!CUR) return;
   stopGameTick();
-  CUR.gameName = ({ react: '반응속도', mole: '두더지잡기', memory: '기억순서', timing: '타이밍' })[name] || name;
+  CUR.gameName = ({ react: '반응속도', mole: '두더지잡기', memory: '기억순서', timing: '타이밍', darts: '다트' })[name] || name;
   CUR.pending = { playing: true, game: name, score: 0 };
   $('panel').innerHTML = '<div class="card">' + whoBar(CUR.data) +
     '<div class="gTitle">' + CUR.gameName + '</div><div id="gBody"></div>' + cancelBtn() + '</div>';
   CUR.data.pending = CUR.pending;
   if (name === 'react') reactGame(); else if (name === 'mole') moleGame();
-  else if (name === 'memory') memoryGame(); else timingGame();
+  else if (name === 'memory') memoryGame(); else if (name === 'darts') dartsGame(); else timingGame();
 }
 function gameFinish(score, text) {
   if (!CUR) return;
@@ -496,6 +508,30 @@ function memoryGame() {
     gT(() => { input = true; $('memMsg').innerHTML = '라운드 <b>' + (round + 1) + '</b> · 이제 같은 순서로!'; }, 550 + seq.length * 560);
   }
   show();
+}
+function dartsGame() {
+  const b = $('gBody'); let hits = 0, thrown = 0, phase = 0, ax = 50, ay = 50, dx = 1, dy = 1, mover = null;
+  b.innerHTML = '<div class="live"><b id="liveVal">0</b><small>명중 / 3발</small></div>' +
+    '<div class="dartWrap"><div class="dartBoard" id="dartBoard"><div class="dring r1"></div><div class="dring r2"></div><div class="dring bull"></div>' +
+    '<div class="dCross" id="dCross"></div><div id="dDarts"></div></div></div>' +
+    '<button class="btn blue" id="dbtn" style="width:100%">🎯 조준 후 투척!</button>' +
+    '<div class="small muted" style="text-align:center;margin-top:6px">첫 탭 = 좌우 조준 고정 · 둘째 탭 = 상하 조준하고 투척 — 가운데에 가까울수록 명중!</div>';
+  mover = gI(() => {
+    const c = $('dCross'); if (!c) { clearInterval(mover); return; }
+    if (phase === 0) { ax += dx * 3; if (ax >= 96) dx = -1; if (ax <= 4) dx = 1; c.style.left = ax + '%'; }
+    else { ay += dy * 3.4; if (ay >= 96) dy = -1; if (ay <= 4) dy = 1; c.style.top = ay + '%'; }
+  }, 28);
+  $('dbtn').onclick = () => {
+    if (phase === 0) { phase = 1; $('dbtn').textContent = '🎈 상하 조준 후 투척!'; return; }
+    phase = 0; thrown++;
+    const dist = Math.sqrt((ax - 50) * (ax - 50) + (ay - 50) * (ay - 50));
+    const hit = dist <= 26;
+    const d = document.createElement('div'); d.className = 'dHit' + (hit ? ' good' : '');
+    d.style.left = ax + '%'; d.style.top = ay + '%'; $('dDarts').appendChild(d);
+    if (hit) { hits++; const lv = $('liveVal'); if (lv) lv.textContent = hits; }
+    if (thrown >= 3) { $('dbtn').disabled = true; clearInterval(mover); gT(() => gameFinish(hits, '다트 ' + hits + '회 명중'), 1000); }
+    else $('dbtn').textContent = '🎯 조준 후 투척!';
+  };
 }
 function timingGame() {
   const b = $('gBody'); let hits = 0, round = 0, pos = 0, dir = 1, moving = null, target = 0, live = false;
@@ -583,6 +619,5 @@ async function cancelCur() {
 
 init();
 </script>
-<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4bc70e2c01a94c73b74392e4234840661791215815920" integrity="sha512-L0ha0OXavK/8okipN9F8BtP84dg9DUhPERbBXzwI6dgTA55d2+yweo3pn5CSFYs45/r8md2+xvUPtTdvTNRfjA==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 </body>
 </html>
