@@ -82,7 +82,7 @@ let AKEY = sessionStorage.getItem('akey') || '', ROLE = '', TAB = '', timer = nu
 const TABS = [
   ['dash', '📊 대시보드', 'BANK'], ['bank', '🏦 은행 창구', 'BANK'], ['students', '👥 학생', 'BANK'],
   ['market', '📈 증권·경매', 'BANK'], ['awards', '🏆 수상', 'BANK'],
-  ['issue', '🎒 입장 발급', 'ADMIN'], ['booths', '🧭 부스 설정', 'ADMIN'], ['config', '⚙ 운영 설정', 'ADMIN'],
+  ['issue', '🎒 입장 발급', 'ADMIN'], ['booths', '🧭 부스 설정', 'ADMIN'], ['spots', '📍 스팟 퀴즈', 'ADMIN'], ['config', '⚙ 운영 설정', 'ADMIN'],
 ];
 function toast(msg, cls) { const t = document.createElement('div'); t.className = 'toast ' + (cls || ''); t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3200); }
 async function A(action, p) { return Camp.api(action, Object.assign({ adminKey: AKEY }, p || {})); }
@@ -105,7 +105,7 @@ async function go(t) {
   if (bankCam) { await bankCam.stop(); bankCam = null; }
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
   $('main').innerHTML = '<p class="muted">불러오는 중…</p>';
-  ({ dash, bank, students, market, awards, issue, booths, config })[t]();
+  ({ dash, bank, students, market, awards, issue, booths, spots, config })[t]();
 }
 
 /* ================= 대시보드 ================= */
@@ -275,7 +275,23 @@ async function booths() {
       '<div class="small" style="margin-top:2mm">' + E(b.guide || '') + '</div></div>').join('') + '</div>';
 }
 
+/* ================= 스팟 퀴즈 QR ================= */
+let SPOTS = null;
+async function spots() {
+  const r = await A('admin.spots');
+  if (!r.ok) { $('main').innerHTML = '<p class="minus">' + E(r.msg) + '</p>'; return; }
+  SPOTS = r;
+  $('main').innerHTML = '<div class="printbar card"><b>📍 스팟 퀴즈 QR</b>' +
+    '<span class="small muted">문제마다 QR 1장 — 인쇄해 캠프장 곳곳에 붙이세요. 학생이 <b>통장 화면</b>에서 스캔하면 본인 DB에 바로 연결됩니다(별도 태블릿 불필요). 문제 추가·수정은 구글 시트 <b>SpotQuiz</b> 시트: id · location · question · c1~c4 · answer(1~4) · reward(비우면 10)</span>' +
+    '<button class="btn blue" onclick="window.print()">🖼 QR 전체 인쇄</button><button class="btn" onclick="spots()">새로고침</button></div>' +
+    (r.spots.length ? '<div class="card noprint"><table class="t"><tr><th>코드</th><th>위치</th><th>문제</th><th>보기</th><th>정답</th><th>보상</th><th>완료 인원</th></tr>' +
+      r.spots.map(s => '<tr><td><code>' + E(s.id) + '</code></td><td>' + E(s.location) + '</td><td>' + E(s.question) + '</td><td class="small">' + s.choices.map((c, i) => (i + 1) + ') ' + E(c)).join(' · ') + '</td><td><b>' + s.answer + '</b></td><td>+' + s.reward + '</td><td>' + (r.solved[s.id] || 0) + '명</td></tr>').join('') + '</table></div>' +
+    '<div class="boothGrid" style="margin-top:12px">' + r.spots.map(s => '<div class="bsign"><div class="small">경제마을 캠프 · 스팟 퀴즈</div><h2>📍 ' + E(s.location || s.id) + '</h2><div class="qr">' + Camp.qrSvg(Camp.BASE + 'me.html?spot=' + encodeURIComponent(s.id), 5) + '</div><div class="small" style="margin-top:2mm">내 통장 화면에서 이 QR을 스캔해 퀴즈를 푸세요 · 정답 시 +' + s.reward + '</div></div>').join('') + '</div>'
+      : '<div class="card"><p class="muted">아직 문제가 없습니다 — 구글 시트 <b>SpotQuiz</b> 시트에 문제를 추가한 뒤 새로고침하세요.</p></div>');
+}
+
 /* ================= 증권·경매 ================= */
+
 async function market() {
   const r = await A('admin.stocks');
   if (!r.ok) { $('main').innerHTML = '<p class="minus">' + E(r.msg) + '</p>'; return; }

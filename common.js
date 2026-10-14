@@ -25,7 +25,7 @@
       } catch (e) {
         lastErr = e;
         // 읽기 요청만 1회 재시도(쓰기 요청은 중복 처리 위험 때문에 재시도하지 않음)
-        if (!/^(ping|booth\.info|me|admin\.dashboard|admin\.students|admin\.student|bank\.lookup|admin\.awards|admin\.cards|admin\.blanks|admin\.booths|admin\.config|admin\.stocks)$/.test(action)) break;
+        if (!/^(ping|booth\.info|me|me\.recover|spot\.quiz|admin\.dashboard|admin\.students|admin\.student|bank\.lookup|admin\.awards|admin\.cards|admin\.blanks|admin\.booths|admin\.config|admin\.stocks)$/.test(action)) break;
         await new Promise(r => setTimeout(r, 800));
       }
     }
