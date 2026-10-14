@@ -197,7 +197,7 @@ async function loadBooth() {
   $('hNo').textContent = r.booth.id === 99 ? '조회' : (r.booth.id === 0 ? '입장' : r.booth.id + '번');
   $('hName').textContent = r.booth.name;
   document.title = r.booth.name + ' — 부스 단말';
-  $('guide').innerHTML = '📌 ' + Camp.esc(r.booth.guide || '');
+   $('guide').innerHTML = '📌 ' + Camp.esc(r.booth.guide || '') + '<br>현재 참가비 ' + r.booth.fee + ' · 시작 시 가격 고정 · 단말 v2.12.0';
   Camp.keepAwake();
   cam = Camp.scanner('reader', onCode, { onError: (m) => { $('camMsg').textContent = m; } });
   idle();   // 카메라 권한 대기와 상관없이 단말은 바로 사용 가능(번호 직접 입력)

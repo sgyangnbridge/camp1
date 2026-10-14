@@ -111,7 +111,7 @@
     <h2>🧾 거래 내역 <span class="small muted">(최근 60건)</span></h2>
     <div id="txs"></div>
   </div>
-  <p class="tip">자동 새로고침 20초 · 내 QR을 다른 사람에게 보여주지 마세요 · <span class="muted">통장 화면 v2.11.0</span><br>
+  <p class="tip">자동 새로고침 20초 · 내 QR을 다른 사람에게 보여주지 마세요 · <span class="muted">통장 화면 v2.12.0</span><br>
   <a href="#" onclick="logout();return false">다른 QR로 보기</a></p>
 </div>
 
@@ -125,7 +125,7 @@ let CODE = '', PENDING_SPOT = '';
 const ICON = { GRANT: '🎁', START: '🎟', END: '🧩', REFUND: '↩️', CANCEL: '✖️', DEPOSIT: '🏦', WITHDRAW: '🏦', INTEREST: '💰', LOAN: '📄',
   REPAY: '✅', AUCTION: '🔨', SETTLE: '📈', ADJUST: '🛠', REISSUE: '🔁', SPOT: '📍' };
 const TYPE = { GRANT: '지급', START: '시작 선차감', END: '체험 결과', REFUND: '환불', CANCEL: '취소', DEPOSIT: '예금 입금', WITHDRAW: '예금 → 잔액',
-  INTEREST: '예금 이자', LOAN: '대출', REPAY: '대출 상환', AUCTION: '경매 낙찰', SETTLE: '주식 정산', ADJUST: '운영 조정', REISSUE: 'QR 재발급', SPOT: '스팟 퀴즈' };
+  INTEREST: '예금 이자', LOAN: '대출', REPAY: '대출 상환', AUCTION: '경매 낙찰', SETTLE: '주식 정산', ADJUST: '운영 조정', REISSUE: 'QR 재발급', SPOT: '스팟 퀴즈', STOCK_PROFIT: '주식 이익 지급' };
 
 function init() {
   const p = new URLSearchParams(location.search);
@@ -221,13 +221,17 @@ function renderQuiz(q) {
 async function spotSubmit(pick) {
   if (!CURSPOT || !LASTQ) return;
   $('spotArea').innerHTML = '<p class="muted">채점 중…</p>';
-  const r = await Camp.api('spot.answer', { code: CODE, spot: CURSPOT, id: LASTQ.id, q: LASTQ.q, pick: pick });
+  const r = await Camp.api('spot.answer', { code: CODE, spot: CURSPOT, id: LASTQ.id, challenge: LASTQ.challenge, pick: pick });
   CURSPOT = null;
   if (!r.ok) { Camp.beep(false); renderSpotIdle(r.msg); return; }
   if (r.correct) { Camp.beep(true); $('bal').textContent = r.balance; load(); renderSpotIdle('🎉 정답! +' + r.reward + ' 크레딧이 지급되었습니다'); }
   else { Camp.beep(false); renderSpotIdle('😢 아쉬워요 — 정답은 ' + r.answer + '번. QR을 다시 스캔하거나 아래에서 다시 도전할 수 있어요'); }
 }
-function spotCancel() { if (spotCam) { spotCam.stop(); spotCam = null; } CURSPOT = null; renderSpotIdle(); }
+async function spotCancel() {
+  if (spotCam) { spotCam.stop(); spotCam = null; }
+  if (LASTQ && LASTQ.challenge) await Camp.api('spot.cancel', {code:CODE,challenge:LASTQ.challenge});
+  LASTQ = null; CURSPOT = null; renderSpotIdle();
+}
 
 /* ---------- 통장 다시 열기 (기기 저장·이름 복구) ---------- */
 function restoreSaved() {
