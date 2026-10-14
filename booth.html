@@ -73,7 +73,7 @@
   .tzone { position: absolute; top: 0; bottom: 0; width: 20%; background: #fde68a; }
   .tmark { position: absolute; top: 0; bottom: 0; width: 6px; background: var(--red); border-radius: 3px; }
   .dartWrap { display: flex; justify-content: center; margin: 6px 0 10px; }
-  .dartBoard { position: relative; width: min(300px, 72vw); aspect-ratio: 1; border-radius: 50%; background: #14532d; border: 6px solid var(--navy); }
+  .dartBoard { position: relative; width: min(300px, 72vw); height: min(300px, 72vw); aspect-ratio: 1; border-radius: 50%; background: #14532d; border: 6px solid var(--navy); }
   .dring { position: absolute; border-radius: 50%; }
   .dring.r1 { inset: 14%; background: #fef3c7; border: 2px solid #d4a017; }
   .dring.r2 { inset: 32%; background: #dc2626; }
@@ -82,7 +82,7 @@
   .dHit { position: absolute; width: 13px; height: 13px; border-radius: 50%; background: #111; transform: translate(-50%,-50%); }
   .dHit.good { background: #fbbf24; }
   #revGrid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; max-width: 520px; margin: 0 auto; }
-  .revCell { aspect-ratio: 1; border-radius: 10px; border: 2px solid var(--navy); background: #fff; font-weight: 900; font-size: 18px; color: var(--navy); }
+  .revCell { height: 40px; aspect-ratio: 1; border-radius: 10px; border: 2px solid var(--navy); background: #fff; font-weight: 900; font-size: 18px; color: var(--navy); }
   .revCell:active { background: var(--gold); }
   .live { text-align: center; margin: 4px 0 10px; }
   .live b { font-size: 46px; color: var(--navy); line-height: 1; }
@@ -192,6 +192,7 @@ async function loadBooth() {
     return;
   }
   INFO = r;
+  if (INFO.booth) INFO.booth.mode = String(INFO.booth.mode || '').trim().toUpperCase();
   $('app').classList.remove('hidden');
   $('hNo').textContent = r.booth.id === 99 ? '조회' : (r.booth.id === 0 ? '입장' : r.booth.id + '번');
   $('hName').textContent = r.booth.name;
@@ -346,7 +347,7 @@ setInterval(async () => {
 document.addEventListener('click', touch, true);
 
 function renderPanel(r) {
-  const mode = INFO.booth.mode, P = $('panel');
+  const mode = String((r && r.mode) || INFO.booth.mode || '').trim().toUpperCase(), P = $('panel');
   let h = '<div class="card">' + whoBar(r);
   if (mode === 'PLAY') {
     status('ok', Camp.esc(r.student.name) + ' 시작!' + (r.fee ? ' (−' + r.fee + ')' : '') + '\n<span class="small">게임을 골라 플레이하세요 — 끝나면 점수가 자동 저장됩니다</span>');
