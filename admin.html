@@ -64,7 +64,7 @@
 
 <div id="app" class="hidden">
 <header>
-  <b id="campName">경제마을 캠프</b><span class="role" id="roleTag"></span>
+  <b id="campName">경제마을 캠프</b><span class="role" id="roleTag"></span><span id="verChip" class="small" style="opacity:.85;font-weight:600"></span>
   <nav id="nav"></nav>
   <button class="btn sm ghost" style="color:#fff;border-color:#fff" onclick="logout()">로그아웃</button>
 </header>
@@ -95,6 +95,7 @@ async function login(k) {
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   $('campName').textContent = r.camp || '경제마을 캠프';
   $('roleTag').textContent = ROLE === 'ADMIN' ? '총괄 관리자' : '은행·플로터';
+  $('verChip').textContent = '화면 v2.10.2';
   $('nav').innerHTML = TABS.filter(t => ROLE === 'ADMIN' || t[2] === 'BANK').map(t => '<button data-t="' + t[0] + '" onclick="go(\'' + t[0] + '\')">' + t[1] + '</button>').join('');
   go(location.hash.slice(1) || 'dash');
 }
@@ -342,6 +343,7 @@ async function config() {
 async function setCfg(k, v) { const r = await A('admin.setConfig', { key: k, value: v }); toast(r.msg, r.ok ? 'ok' : 'err'); if (TAB === 'config') config(); if (TAB === 'dash') dash(); }
 async function closeBank() { if (!confirm('은행을 마감하고 모든 예금 이자를 지급합니다. 계속할까요?')) return; const r = await A('bank.close'); toast(r.msg, r.ok ? 'ok' : 'err'); }
 
+Camp.api('ping', {}).then(pr => { const c = $('verChip'); if (c) c.textContent = (c.textContent || '') + ' · API ' + (pr.ok ? 'v' + (pr.ver || '?') : '연결 안 됨 — Code.gs를 새 버전으로 배포하세요'); });
 $('akey').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
 if (AKEY) login(AKEY); 
 </script>

@@ -111,7 +111,7 @@
     <h2>🧾 거래 내역 <span class="small muted">(최근 60건)</span></h2>
     <div id="txs"></div>
   </div>
-  <p class="tip">자동 새로고침 20초 · 내 QR을 다른 사람에게 보여주지 마세요<br>
+  <p class="tip">자동 새로고침 20초 · 내 QR을 다른 사람에게 보여주지 마세요 · <span class="muted">통장 화면 v2.10.2</span><br>
   <a href="#" onclick="logout();return false">다른 QR로 보기</a></p>
 </div>
 
@@ -131,7 +131,8 @@ function init() {
   const p = new URLSearchParams(location.search);
   CODE = p.get('c') || sessionStorage.getItem('myCode') || '';
   PENDING_SPOT = p.get('spot') || '';
-  if (!CODE) { $('login').classList.remove('hidden'); showRestoreBanner(); return; }
+  if (!CODE) { $('login').classList.remove('hidden'); showRestoreBanner();
+    if (PENDING_SPOT) $('lmsg').innerHTML = '📍 퀴즈 QR을 인식했어요! 아래에서 <b>내 번호로 로그인</b>하면 문제가 바로 열립니다'; return; }
   load();
   setInterval(load, 20000);
 }
