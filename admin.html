@@ -95,7 +95,7 @@ async function login(k) {
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   $('campName').textContent = r.camp || '경제마을 캠프';
   $('roleTag').textContent = ROLE === 'ADMIN' ? '총괄 관리자' : '은행·플로터';
-  $('verChip').textContent = '화면 v2.12.1';
+  $('verChip').textContent = '화면 v2.12.2';
   $('nav').innerHTML = TABS.filter(t => ROLE === 'ADMIN' || t[2] === 'BANK').map(t => '<button data-t="' + t[0] + '" onclick="go(\'' + t[0] + '\')">' + t[1] + '</button>').join('');
   go(location.hash.slice(1) || 'dash');
 }
