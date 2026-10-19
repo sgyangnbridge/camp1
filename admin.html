@@ -95,7 +95,7 @@ async function login(k) {
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   $('campName').textContent = r.camp || '경제마을 캠프';
   $('roleTag').textContent = ROLE === 'ADMIN' ? '총괄 관리자' : '은행·플로터';
-  $('verChip').textContent = '화면 v2.12.0';
+  $('verChip').textContent = '화면 v2.12.1';
   $('nav').innerHTML = TABS.filter(t => ROLE === 'ADMIN' || t[2] === 'BANK').map(t => '<button data-t="' + t[0] + '" onclick="go(\'' + t[0] + '\')">' + t[1] + '</button>').join('');
   go(location.hash.slice(1) || 'dash');
 }
@@ -145,16 +145,69 @@ function kpi(l, v, c) { return '<div class="kpi ' + (c || '') + '"><span>' + l +
 function moneyPanel(m, editable) {
   if (!m) return '';
   const fld = (id,label,v) => '<label style="display:block;margin:8px 0">' + label + '<input id="'+id+'" class="input" type="number" min="0" step="1" value="'+v+'"></label>';
-  return '<div class="card noprint" style="margin:12px 0"><h3>최대 발행량·현금 유통량·자동 물가</h3>' +
-    '<div class="kpis">' + kpi('예정 인원',m.planned+'명') + kpi('최대 발행량',m.budget) + kpi('누적 신규 발행',m.issued) + kpi('보상 예약',m.reserved) + kpi('미입장 보호',m.entryProtected) + kpi('발행 가능 잔여',m.remaining) + kpi('현재 학생 현금',m.circulating) + kpi('예금 별도',m.deposits) + kpi('현금 목표 / 비율',m.cashTarget+' / '+m.percent+'%') + kpi('상품·참가비 배율','×'+m.effective) + '</div>' +
-    '<p>'+(m.configured ? (m.excess ? '한도 초과 상태 '+m.excess+' — 신규 시작·지급 차단' : '최대 발행 한도 강제 중') : '경고: 최대 발행량 0 = 미설정. 지급 제한이 없습니다. 행사 전 양수 한도를 설정하세요')+' · 자동 조정 '+(m.enabled?'사용':'꺼짐')+'</p>' +
-    '<p class="small muted">누적 발행은 소비해도 줄지 않으며 한도를 재사용하지 않습니다. 현금은 소비·예금 시 감소하고, 다음 시작 가격은 낮아질 수 있습니다. 입장·체험·스팟·대출·이자·추가 지급·주식 이익을 신규 발행으로 집계하며 환불·예금/주식 원금 반환은 제외합니다. 시작 당시 참가비·상품·보상 유지.</p>' +
-    (editable ? '<div class="cols"><div>'+fld('mpPeople','사전 모집 예정 인원',m.planned)+fld('mpPer','1인 최대 신규 발행량',m.perStudent)+fld('mpBudget','총 최대량 직접 입력 (0 = 인원 × 1인 최대량)',Number(moneyConfigValue('ISSUE_BUDGET')) || 0)+fld('mpCashPer','1인 현금 목표',m.cashPerStudent)+fld('mpCashTarget','현금 목표 직접 입력 (0 = 인원 × 1인 목표)',Number(moneyConfigValue('CASH_TARGET')) || 0)+'</div><div><label>물가 단계 (현금 목표 비율%:배율)<input id="mpSteps" class="input" value="'+E(m.steps.map(s=>s.percent+':'+s.factor).join('|'))+'"></label><p class="small">예: 80:1.1|100:1.2|120:1.3</p><label><input id="mpEnabled" type="checkbox" '+(m.enabled?'checked':'')+'> 자동 물가 조정 사용</label><p>수동 기본 배율 × 자동 단계 배율 = 상품·참가비 배율. 주가·경매 낙찰가·예금액 제외.</p><button class="btn blue" onclick="saveMoney()">발행 정책 저장</button></div></div>' : '<p>단계: '+m.steps.map(s=>s.percent+'% → ×'+s.factor).join(' / ')+'</p>')+'</div>';
+  const fmt = n => Number(n||0).toLocaleString('ko-KR');
+  const explain = '<p class="small muted"><b>최대 발행량</b> = 이 캠프에서 새로 찍어낼 수 있는 돈의 총 한도 · <b>현금 목표</b> = 학생들이 손에 쥔 돈(통장 잔액) 합계 목표 — 예금·주식 제외</p>';
+  const kpis = '<div class="kpis">' + kpi('예정 인원',m.planned+'명') + kpi('최대 발행량(총 한도)',m.budget) + kpi('누적 신규 발행',m.issued) + kpi('보상 예약',m.reserved) + kpi('미입장 보호',m.entryProtected) + kpi('발행 가능 잔여',m.remaining) + kpi('현재 학생 현금',m.circulating) + kpi('예금 별도',m.deposits) + kpi('현금 목표 / 비율',m.cashTarget+' / '+m.percent+'%') + kpi('상품·참가비 배율','×'+m.effective) + '</div>';
+  const note = '<p>'+(m.configured ? (m.excess ? '한도 초과 상태 '+m.excess+' — 신규 시작·지급 차단' : '최대 발행 한도 강제 중') : '경고: 최대 발행량 0 = 미설정. 지급 제한이 없습니다. 행사 전 양수 한도를 설정하세요')+' · 자동 조정 '+(m.enabled?'사용':'꺼짐')+'</p>' +
+    '<p class="small muted">누적 발행은 소비해도 줄지 않으며 한도를 재사용하지 않습니다. 현금은 소비·예금 시 감소하고, 다음 시작 가격은 낮아질 수 있습니다. 입장·체험·스팟·대출·이자·추가 지급·주식 이익을 신규 발행으로 집계하며 환불·예금/주식 원금 반환은 제외합니다. 시작 당시 참가비·상품·보상 유지.</p>';
+  if (!editable) return '<div class="card noprint" style="margin:12px 0"><h3>발행 한도 · 현금 목표 · 자동 물가</h3>' + explain + kpis + note +
+    '<p>단계: '+m.steps.map(s=>s.percent+'% → ×'+s.factor).join(' / ')+'</p></div>';
+  const budDirect = Number(moneyConfigValue('ISSUE_BUDGET')) > 0, cashDirect = Number(moneyConfigValue('CASH_TARGET')) > 0;
+  const radio = (name,val,id,label,on) => '<label style="display:inline-block;margin:4px 18px 4px 0;font-weight:700"><input type="radio" name="'+name+'" id="'+id+'" value="'+val+'"'+(on?' checked':'')+'> '+label+'</label>';
+  return '<div class="card noprint" style="margin:12px 0"><h3>발행 한도 · 현금 목표 · 자동 물가</h3>' + explain + kpis + note +
+    '<div class="card" style="background:#f8fafc;margin-top:10px">' +
+    '<h3 style="font-size:16px">① 예정 인원</h3>' + fld('mpPeople','사전 모집 예정 인원 (명)',m.planned) +
+    '<h3 style="font-size:16px;margin-top:12px">② 최대 발행량 — 이 캠프에서 새로 찍어낼 수 있는 돈의 총 한도</h3>' +
+    '<div>입력 방식: ' + radio('issueMode','per','mpIssueModePer','인원 × 1인당 금액',!budDirect) + radio('issueMode','direct','mpIssueModeDirect','총액 직접 입력',budDirect) + '</div>' +
+    '<div id="mpIssuePerBox">'+fld('mpPer','1인당 최대 발행량 (입장 지급 + 활동 보상 등 전체 포함)',m.perStudent)+'</div>' +
+    '<div id="mpBudgetBox">'+fld('mpBudget','총 최대 발행량 직접 입력',Number(moneyConfigValue('ISSUE_BUDGET')) || 0)+'</div>' +
+    '<p id="mpIssuePreview" class="small" style="font-weight:800;color:#1a2942"></p>' +
+    '<h3 style="font-size:16px;margin-top:12px">③ 현금 목표 — 학생들이 손에 쥔 돈(통장 잔액) 합계 목표 (예금·주식 제외)</h3>' +
+    '<div>입력 방식: ' + radio('cashMode','per','mpCashModePer','인원 × 1인당 금액',!cashDirect) + radio('cashMode','direct','mpCashModeDirect','총액 직접 입력',cashDirect) + '</div>' +
+    '<div id="mpCashPerBox">'+fld('mpCashPer','1인당 현금 목표',m.cashPerStudent)+'</div>' +
+    '<div id="mpCashTargetBox">'+fld('mpCashTarget','현금 목표 총액 직접 입력',Number(moneyConfigValue('CASH_TARGET')) || 0)+'</div>' +
+    '<p id="mpCashPreview" class="small" style="font-weight:800;color:#1a2942"></p>' +
+    '</div>' +
+    '<div class="cols" style="margin-top:10px"><div><label>물가 단계 (현금 목표 비율%:배율)<input id="mpSteps" class="input" value="'+E(m.steps.map(s=>s.percent+':'+s.factor).join('|'))+'"></label><p class="small">예: 80:1.2|85:1.3|90:1.4 — 현금이 목표의 80%가 되면 가격 1.2배, 85%면 1.3배, 90%면 1.4배</p><label><input id="mpEnabled" type="checkbox" '+(m.enabled?'checked':'')+'> 자동 물가 조정 사용</label><p class="small">수동 기본 배율 × 자동 단계 배율 = 상품·참가비 배율. 주가·경매 낙찰가·예금액 제외.</p></div>' +
+    '<div><p class="small">각 항목은 <b>입력 방식(라디오)</b>으로 고릅니다 — 선택하지 않은 쪽 입력칸은 숨겨지고 저장에 사용되지 않습니다.</p><button class="btn blue" onclick="saveMoney()">발행 정책 저장</button></div></div></div>';
 }
 let MONEY_CONFIG = [], AUTO_MONEY = false;
 function moneyConfigValue(key) { const o=MONEY_CONFIG.find(x=>x.key===key);return o ? o.value : 0; }
+function mpModeOf(name) { const el = document.querySelector('input[name="'+name+'"]:checked'); return el ? el.value : 'per'; }
+function mpApplyMode() {
+  const iDirect = mpModeOf('issueMode') === 'direct', cDirect = mpModeOf('cashMode') === 'direct';
+  $('mpPer').disabled = iDirect; $('mpBudget').disabled = !iDirect;
+  $('mpIssuePerBox').style.display = iDirect ? 'none' : ''; $('mpBudgetBox').style.display = iDirect ? '' : 'none';
+  $('mpCashPer').disabled = cDirect; $('mpCashTarget').disabled = !cDirect;
+  $('mpCashPerBox').style.display = cDirect ? 'none' : ''; $('mpCashTargetBox').style.display = cDirect ? '' : 'none';
+  mpPreview();
+}
+function mpPreview() {
+  const fmt = n => Number(n||0).toLocaleString('ko-KR');
+  const p = Number($('mpPeople').value) || 0;
+  if (mpModeOf('issueMode') === 'direct') {
+    const v = Number($('mpBudget').value) || 0;
+    $('mpIssuePreview').textContent = '총 한도 ' + fmt(v) + (p > 0 ? ' (예정 ' + fmt(p) + '명 · 1인당 약 ' + fmt(Math.floor(v / p)) + ')' : '');
+  } else {
+    const v = Number($('mpPer').value) || 0;
+    $('mpIssuePreview').textContent = '예: 예정 ' + fmt(p) + '명 × 1인당 ' + fmt(v) + ' = 총 ' + fmt(p * v);
+  }
+  if (mpModeOf('cashMode') === 'direct') {
+    const v = Number($('mpCashTarget').value) || 0;
+    $('mpCashPreview').textContent = '현금 목표 총액 ' + fmt(v) + (p > 0 ? ' (예정 ' + fmt(p) + '명 · 1인당 약 ' + fmt(Math.floor(v / p)) + ')' : '');
+  } else {
+    const v = Number($('mpCashPer').value) || 0;
+    $('mpCashPreview').textContent = '예: 예정 ' + fmt(p) + '명 × 1인당 ' + fmt(v) + ' = 총 ' + fmt(p * v);
+  }
+}
+function mpBind() {
+  ['mpIssueModePer','mpIssueModeDirect','mpCashModePer','mpCashModeDirect'].forEach(id => { const el = $(id); if (el) el.addEventListener('change', mpApplyMode); });
+  ['mpPeople','mpPer','mpBudget','mpCashPer','mpCashTarget'].forEach(id => { const el = $(id); if (el) el.addEventListener('input', mpPreview); });
+  mpApplyMode();
+}
 async function saveMoney() {
-  const r=await A('admin.moneyPolicy',{planned:$('mpPeople').value,perStudent:$('mpPer').value,budget:$('mpBudget').value,cashPerStudent:$('mpCashPer').value,cashTarget:$('mpCashTarget').value,steps:$('mpSteps').value,enabled:$('mpEnabled').checked});
+  const iDirect = mpModeOf('issueMode') === 'direct', cDirect = mpModeOf('cashMode') === 'direct';
+  const r=await A('admin.moneyPolicy',{planned:$('mpPeople').value,perStudent:$('mpPer').value,budget:iDirect?$('mpBudget').value:0,issueMode:mpModeOf('issueMode'),cashPerStudent:$('mpCashPer').value,cashTarget:cDirect?$('mpCashTarget').value:0,cashMode:mpModeOf('cashMode'),steps:$('mpSteps').value,enabled:$('mpEnabled').checked});
  toast(r.msg,r.ok?'ok':'err');if(r.ok) config();
 }
 function lever(k) {
@@ -177,7 +230,7 @@ async function fc(s, refund) {
 async function bank() {
   $('main').innerHTML = '<div class="cols"><div class="card"><h3>🏦 은행 창구 — 학생 카드 스캔</h3><div id="reader2"></div>' +
     '<div class="row" style="margin-top:8px"><input id="bcode" class="input grow" placeholder="카드 번호 직접 입력" style="text-transform:uppercase"><button class="btn" onclick="bankLook($(\'bcode\').value)">조회</button></div>' +
-    '<p class="small muted">예금(최소 20) → 은행 마감 때 이자 10% · 대출 50(1인 1회) → 상환 55 · 미상환 대출은 순자산에서 차감</p></div>' +
+    '<p class="small muted">예금(최소 4,000) → 은행 마감 때 이자 10% · 대출 10,000(1인 1회) → 상환 11,000 · 미상환 대출은 순자산에서 차감</p></div>' +
     '<div class="card bankBox" id="bankBox"><p class="muted">카드를 스캔하세요</p></div></div>';
   $('bcode').addEventListener('keydown', e => { if (e.key === 'Enter') bankLook($('bcode').value); });
   bankCam = Camp.scanner('reader2', (t) => bankLook(t), { onError: (m) => { $('reader2').innerHTML = '<p style="color:#fff;padding:20px">' + E(m) + '</p>'; } });
@@ -356,6 +409,7 @@ async function config() {
     '<hr><p class="small muted">그 밖의 값(부스 규칙·상품·퀴즈)은 구글 시트에서 직접 수정합니다. 관리자·은행 키는 시트 Config에서만 보입니다.</p></div>' +
     '<div class="card"><h3>설정값</h3><table class="t"><tr><th>항목</th><th>값</th><th>설명</th><th></th></tr>' + r.config.map(c =>
       '<tr><td><code>' + E(c.key) + '</code></td><td><input id="cf_' + E(c.key) + '" class="input" style="padding:6px;font-size:14px;width:110px" value="' + E(c.value) + '"></td><td class="small">' + E(c.note) + '</td><td><button class="btn sm" onclick="setCfg(\'' + E(c.key) + '\', $(\'cf_' + E(c.key) + '\').value)">저장</button></td></tr>').join('') + '</table></div></div>';
+  mpBind();
 }
 async function setCfg(k, v) { const r = await A('admin.setConfig', { key: k, value: v }); toast(r.msg, r.ok ? 'ok' : 'err'); if (TAB === 'config') config(); if (TAB === 'dash') dash(); }
 async function closeBank() { if (!confirm('은행을 마감하고 모든 예금 이자를 지급합니다. 계속할까요?')) return; const r = await A('bank.close'); toast(r.msg, r.ok ? 'ok' : 'err'); }

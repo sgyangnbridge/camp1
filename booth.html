@@ -197,7 +197,7 @@ async function loadBooth() {
   $('hNo').textContent = r.booth.id === 99 ? '조회' : (r.booth.id === 0 ? '입장' : r.booth.id + '번');
   $('hName').textContent = r.booth.name;
   document.title = r.booth.name + ' — 부스 단말';
-   $('guide').innerHTML = '📌 ' + Camp.esc(r.booth.guide || '') + '<br>현재 참가비 ' + r.booth.fee + ' · 시작 시 가격 고정 · 단말 v2.12.0';
+   $('guide').innerHTML = '📌 ' + Camp.esc(r.booth.guide || '') + '<br>현재 참가비 ' + r.booth.fee + ' · 시작 시 가격 고정 · 단말 v2.12.1';
   Camp.keepAwake();
   cam = Camp.scanner('reader', onCode, { onError: (m) => { $('camMsg').textContent = m; } });
   idle();   // 카메라 권한 대기와 상관없이 단말은 바로 사용 가능(번호 직접 입력)
@@ -390,7 +390,7 @@ function renderPanel(r) {
       return '<div class="stockRow" id="st_' + s.code + '" onclick="pickStock(\'' + s.code + '\')"><div><b style="font-size:19px">' + Camp.esc(s.name) + '</b><br><span class="small muted">' + Camp.esc(s.desc || '') +
         (hold ? ' · 보유 평가액 ' + hold.value + ' (매수 ' + hold.cost + ')' : '') + '</span></div><span class="pr">' + s.price + '</span></div>';
     }).join('') +
-      '<div id="stockAct" class="hidden"><div class="amts" id="amts"><button onclick="pickAmt(10)">10 매수</button><button onclick="pickAmt(20)">20 매수</button><button onclick="pickAmt(30)">30 매수</button></div>' +
+      '<div id="stockAct" class="hidden"><div class="amts" id="amts">' + ((r.buyAmounts || (INFO && INFO.buyAmounts) || [2000, 4000, 6000]).map(a => '<button onclick="pickAmt(' + a + ')">' + a + ' 매수</button>').join('')) + '</div>' +
       '<button id="sellBtn" class="btn red hidden" style="width:100%" onclick="pickSell()">전부 매도</button></div>' +
       '<div class="rescan" id="stockHint">종목 선택 → 금액 → QR 다시 스캔</div>';
   } else if (mode === 'QUIZ') {
